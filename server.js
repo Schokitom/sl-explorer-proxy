@@ -50,10 +50,14 @@ const server = http.createServer((req, res) => {
 
   const parsed = url.parse(req.url, true);
 
-  // ── Route: GET /proxy?url=<trimble-url> ─────────────────────────────────
+  // ── Route: GET /proxy?url=<trimble-url>&token=<bearer-token> ────────────
   if (parsed.pathname === '/proxy') {
-    const targetUrl = parsed.query.url;
-    const authHeader = req.headers['authorization'];
+    const targetUrl  = parsed.query.url;
+    const token      = parsed.query.token;
+    // Also accept Authorization header as fallback
+    const authHeader = token
+      ? `Bearer ${token}`
+      : (req.headers['authorization'] || '');
 
     if (!targetUrl) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -61,23 +65,29 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    // Nur Trimble-URLs erlauben (Sicherheit)
-    if (!targetUrl.startsWith('https://app') || !targetUrl.includes('connect.trimble.com')) {
+    // Normalize URL — ensure https:// prefix
+    const normalizedUrl = targetUrl.startsWith('//')
+      ? 'https:' + targetUrl
+      : targetUrl;
+
+    // Only allow Trimble Connect URLs (security)
+    if (!normalizedUrl.startsWith('https://') ||
+        !normalizedUrl.includes('connect.trimble.com')) {
       res.writeHead(403, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Only Trimble Connect URLs allowed' }));
+      res.end(JSON.stringify({ error: 'Only Trimble Connect URLs allowed', got: normalizedUrl.substring(0, 60) }));
       return;
     }
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       res.writeHead(401, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Missing Authorization header' }));
+      res.end(JSON.stringify({ error: 'Missing token' }));
       return;
     }
 
-    console.log(`[Proxy] → ${targetUrl.substring(0, 80)}...`);
+    console.log(`[Proxy] → ${normalizedUrl.substring(0, 80)}...`);
 
     // Anfrage an Trimble weiterleiten
-    const trimbleReq = https.get(targetUrl, {
+    const trimbleReq = https.get(normalizedUrl, {
       headers: {
         'Authorization': authHeader,
         'User-Agent':    'SL-Explorer-Proxy/1.0'
