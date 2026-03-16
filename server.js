@@ -157,7 +157,9 @@ const server = http.createServer((req, res) => {
     res.end(JSON.stringify({
       status: 'ok',
       service: 'S+L Explorer Proxy',
-      version: '1.0.0'
+      version: '2.0.0',
+      routes: ['/health', '/proxy?url=<trimble-url>&token=<bearer>'],
+      allowed_origin: ALLOWED_ORIGIN
     }));
     return;
   }
