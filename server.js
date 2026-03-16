@@ -18,7 +18,7 @@ function setCors(res, origin) {
   const allow = (origin === ALLOWED_ORIGIN) ? origin : '';
   res.setHeader('Access-Control-Allow-Origin',  allow);
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Token');
   res.setHeader('Access-Control-Max-Age',       '86400');
 }
 
@@ -53,8 +53,9 @@ const server = http.createServer((req, res) => {
   // ── Route: GET /proxy?url=<trimble-url>&token=<bearer-token> ────────────
   if (parsed.pathname === '/proxy') {
     const targetUrl  = parsed.query.url;
-    const token      = parsed.query.token;
-    // Also accept Authorization header as fallback
+    const token      = req.headers['x-token']           // preferred: X-Token header
+      || parsed.query.token                              // fallback: query param
+      || null;
     const authHeader = token
       ? `Bearer ${token}`
       : (req.headers['authorization'] || '');
